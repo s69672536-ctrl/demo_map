@@ -1,0 +1,405 @@
+// Collector-facing web app. Shows ONE destination at a time (never the
+// full route), auto-detects arrival via GPS geofence, and moves to the
+// next stop automatically once the current one is marked done.
+//
+// Note on the geofence: entering it shows an "arrived" prompt but does NOT
+// auto-mark the stop as paid - collecting money still needs a human tap to
+// confirm, for obvious reasons. Everything else (which segment is drawn,
+// which marker colors, moving to the next stop) is automatic.
+
+const GEOFENCE_METERS = 45; // how close counts as "arrived"
+
+let currentCollector = null;
+let currentRoute = null;      // full today's list, used only for the "view all stops" panel
+let currentLeg = null;        // the single active navigation segment
+let activeStopId = null;      // customer_id currently open in the mark modal
+let gpsIntervalId = null;     // backend location-ping loop
+let legPollIntervalId = null; // current-leg refresh loop
+let watchId = null;           // navigator.geolocation.watchPosition handle
+let myLastPosition = null;    // {lat, lng} - collector's own last known GPS fix
+let hasShownArrivedFor = null; // customer_id we've already shown the arrival banner for
+
+let map, legLine, destMarker, fromMarker, meMarker;
+
+// ---------- API helper ----------
+
+async function api(path, options = {}) {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { "Content-Type": "application/json" },
+    ...options,
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(body || `Request failed (${res.status})`);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str || "";
+  return div.innerHTML;
+}
+
+// ---------- Screens ----------
+
+function showScreen(id) {
+  document.getElementById("loginScreen").style.display = id === "login" ? "flex" : "none";
+  document.getElementById("routeScreen").style.display = id === "route" ? "block" : "none";
+}
+
+// ---------- Login ----------
+
+async function handleLogin() {
+  const phone = document.getElementById("phoneInput").value.trim();
+  const errorEl = document.getElementById("loginError");
+  errorEl.textContent = "";
+
+  if (!phone) {
+    errorEl.textContent = "Enter your phone number.";
+    return;
+  }
+
+  const btn = document.getElementById("loginBtn");
+  btn.disabled = true;
+  btn.textContent = "Logging in...";
+
+  try {
+    const collector = await api(`/collectors/login?phone=${encodeURIComponent(phone)}`, {
+      method: "POST",
+    });
+    currentCollector = collector;
+    localStorage.setItem("collector", JSON.stringify(collector));
+    startSession();
+  } catch (e) {
+    errorEl.textContent = "Couldn't log in. Check your phone number and try again.";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Start My Day";
+  }
+}
+
+function startSession() {
+  showScreen("route");
+  initMapIfNeeded();
+  startGpsTracking();
+  loadTodayRoute();
+  loadCurrentLeg();
+  if (!legPollIntervalId) legPollIntervalId = setInterval(loadCurrentLeg, 8000);
+}
+
+function handleLogout() {
+  stopGpsTracking();
+  if (legPollIntervalId) { clearInterval(legPollIntervalId); legPollIntervalId = null; }
+  currentCollector = null;
+  currentRoute = null;
+  currentLeg = null;
+  hasShownArrivedFor = null;
+  localStorage.removeItem("collector");
+  document.getElementById("phoneInput").value = "";
+  showScreen("login");
+}
+
+// ---------- GPS tracking (backend pings + local geofence watch) ----------
+
+function startGpsTracking() {
+  if (!navigator.geolocation) return;
+
+  // Backend pings every 15s, for the admin's live-tracking/km-travelled view.
+  if (!gpsIntervalId) {
+    const sendPing = () => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          api(`/tracking/${currentCollector.id}/ping`, {
+            method: "POST",
+            body: JSON.stringify({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+          }).catch(() => {});
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    };
+    sendPing();
+    gpsIntervalId = setInterval(sendPing, 15000);
+  }
+
+  // Continuous local watch, for smooth-ish marker movement + geofence checks.
+  if (watchId === null) {
+    watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        myLastPosition = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        updateMyMarker();
+        checkGeofence();
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 5000 }
+    );
+  }
+}
+
+function stopGpsTracking() {
+  if (gpsIntervalId) { clearInterval(gpsIntervalId); gpsIntervalId = null; }
+  if (watchId !== null && navigator.geolocation) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+}
+
+function distanceMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function checkGeofence() {
+  if (!myLastPosition || !currentLeg || currentLeg.route_completed || !currentLeg.to_point) return;
+
+  const d = distanceMeters(
+    myLastPosition.lat, myLastPosition.lng,
+    currentLeg.to_point.latitude, currentLeg.to_point.longitude
+  );
+
+  const banner = document.getElementById("arrivedBanner");
+  if (d <= GEOFENCE_METERS) {
+    banner.style.display = "block";
+    hasShownArrivedFor = currentLeg.to_customer_id;
+  } else if (hasShownArrivedFor !== currentLeg.to_customer_id) {
+    banner.style.display = "none";
+  }
+}
+
+// ---------- Map ----------
+
+function initMapIfNeeded() {
+  if (map) return;
+  map = L.map("navMap", { zoomControl: false }).setView([20, 78], 4);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap contributors",
+  }).addTo(map);
+}
+
+function updateMyMarker() {
+  if (!map || !myLastPosition) return;
+  if (meMarker) {
+    meMarker.setLatLng([myLastPosition.lat, myLastPosition.lng]);
+  } else {
+    meMarker = L.circleMarker([myLastPosition.lat, myLastPosition.lng], {
+      radius: 7, color: "#6b7280", fillColor: "#9ca3af", fillOpacity: 0.9,
+    }).addTo(map).bindPopup("You");
+  }
+}
+
+function drawCurrentLeg(leg) {
+  if (!map) return;
+
+  [legLine, destMarker, fromMarker].forEach((layer) => { if (layer) map.removeLayer(layer); });
+  legLine = destMarker = fromMarker = null;
+
+  if (leg.route_completed) return;
+
+  const coords = leg.geometry && leg.geometry.length > 1
+    ? leg.geometry
+    : [[leg.from_point.latitude, leg.from_point.longitude], [leg.to_point.latitude, leg.to_point.longitude]];
+
+  legLine = L.polyline(coords, { color: "#3b82f6", weight: 5, opacity: 0.9 }).addTo(map);
+
+  fromMarker = L.circleMarker([leg.from_point.latitude, leg.from_point.longitude], {
+    radius: 6, color: "#22c55e", fillColor: "#4ade80", fillOpacity: 0.9,
+  }).addTo(map).bindPopup(leg.from_point.label);
+
+  destMarker = L.circleMarker([leg.to_point.latitude, leg.to_point.longitude], {
+    radius: 9, color: "#3b82f6", fillColor: "#60a5fa", fillOpacity: 0.95,
+  }).addTo(map).bindPopup(leg.to_point.label);
+
+  map.fitBounds(legLine.getBounds(), { padding: [30, 30] });
+}
+
+// ---------- Current leg (single-destination navigation) ----------
+
+async function loadCurrentLeg() {
+  if (!currentCollector) return;
+  try {
+    currentLeg = await api(`/collections/current-leg?collector_id=${currentCollector.id}`);
+  } catch (e) {
+    return; // no route today - the loadTodayRoute() error banner already covers this
+  }
+  renderCurrentLeg();
+}
+
+function renderCurrentLeg() {
+  const legSection = document.getElementById("currentLegSection");
+  const completedSection = document.getElementById("completedSection");
+  const banner = document.getElementById("arrivedBanner");
+
+  if (!currentLeg) {
+    legSection.style.display = "none";
+    completedSection.style.display = "none";
+    return;
+  }
+
+  if (currentLeg.route_completed) {
+    legSection.style.display = "none";
+    banner.style.display = "none";
+    completedSection.style.display = "block";
+    const s = currentLeg.summary;
+    if (s) {
+      document.getElementById("statDistance").textContent = s.total_distance_km.toFixed(1);
+      document.getElementById("statStops").textContent = `${s.stops_completed}/${s.stops_total}`;
+      document.getElementById("statAmount").textContent = `₹${s.amount_collected.toFixed(0)}`;
+    }
+    return;
+  }
+
+  completedSection.style.display = "none";
+  legSection.style.display = "block";
+  if (hasShownArrivedFor !== currentLeg.to_customer_id) {
+    banner.style.display = "none";
+  }
+
+  document.getElementById("destName").textContent = currentLeg.to_point.label;
+  document.getElementById("destAmount").textContent =
+    currentLeg.to_amount != null ? `₹${currentLeg.to_amount.toFixed(0)}` : "";
+  document.getElementById("destDistance").textContent =
+    currentLeg.distance_km != null ? `📏 ${currentLeg.distance_km} km` : "";
+  document.getElementById("destEta").textContent =
+    currentLeg.eta_minutes != null ? `⏱ ${Math.round(currentLeg.eta_minutes)} min` : "";
+
+  const img = document.getElementById("destHouseImage");
+  if (currentLeg.to_house_image_path) {
+    img.src = `${API_BASE_URL}${currentLeg.to_house_image_path}`;
+    img.style.display = "block";
+  } else {
+    img.style.display = "none";
+  }
+
+  drawCurrentLeg(currentLeg);
+  checkGeofence();
+}
+
+// ---------- Today's full stop list (context only, shown collapsed) ----------
+
+async function loadTodayRoute() {
+  const errorBanner = document.getElementById("errorBanner");
+  errorBanner.style.display = "none";
+
+  try {
+    currentRoute = await api(`/collections/today?collector_id=${currentCollector.id}`);
+    renderRoute();
+  } catch (e) {
+    currentRoute = null;
+    document.getElementById("stopsList").innerHTML = "";
+    document.getElementById("routeName").textContent = "No route today";
+    document.getElementById("progressText").textContent = "";
+    document.getElementById("currentLegSection").style.display = "none";
+    errorBanner.style.display = "block";
+    errorBanner.textContent =
+      "No route assigned for today yet. Ask your manager to assign one, then tap refresh.";
+  }
+}
+
+function renderRoute() {
+  const route = currentRoute;
+  document.getElementById("routeName").textContent = route.route_name;
+  document.getElementById("routeDate").textContent = route.date;
+
+  const completed = route.stops.filter(
+    (s) => s.status === "collected" || s.status === "skipped" || s.status === "absent"
+  ).length;
+  const total = route.stops.length;
+  document.getElementById("progressText").textContent = `${completed} / ${total} completed`;
+  document.getElementById("progressFill").style.width = total ? `${(completed / total) * 100}%` : "0%";
+
+  const list = document.getElementById("stopsList");
+  list.innerHTML = "";
+  route.stops.forEach((stop, index) => {
+    const isDone = stop.status !== "pending";
+    const li = document.createElement("li");
+    li.className = "stop-item";
+    li.innerHTML = `
+      <div class="stop-badge ${isDone ? `badge-${stop.status}` : "badge-pending"}">${index + 1}</div>
+      <div class="stop-info">
+        <div class="stop-name ${isDone ? "done" : ""}">${escapeHtml(stop.name)}</div>
+        <div class="stop-phone">${escapeHtml(stop.phone || "")}</div>
+        ${isDone ? `<div class="stop-status-tag">${stop.status.toUpperCase()}</div>` : ""}
+      </div>
+    `;
+    list.appendChild(li);
+  });
+}
+
+// ---------- Mark stop modal ----------
+
+function openMarkModalForCurrentLeg() {
+  if (!currentLeg || currentLeg.route_completed) return;
+  activeStopId = currentLeg.to_customer_id;
+  document.getElementById("modalCustomerName").textContent = currentLeg.to_point.label;
+  document.getElementById("modalAmount").value = currentLeg.to_amount ?? "";
+  document.getElementById("markModal").style.display = "flex";
+}
+
+function closeMarkModal() {
+  activeStopId = null;
+  document.getElementById("markModal").style.display = "none";
+}
+
+async function markStop(status) {
+  if (!activeStopId) return;
+  const amountStr = document.getElementById("modalAmount").value;
+  const amount_collected = status === "collected" && amountStr ? parseFloat(amountStr) : null;
+
+  try {
+    await api(`/collections/${activeStopId}/mark`, {
+      method: "POST",
+      body: JSON.stringify({ status, amount_collected }),
+    });
+    closeMarkModal();
+    hasShownArrivedFor = null;
+    document.getElementById("arrivedBanner").style.display = "none";
+    await loadTodayRoute();
+    await loadCurrentLeg(); // moves navigation on to the next stop automatically
+  } catch (e) {
+    alert("Couldn't update this stop. Check your connection and try again.");
+  }
+}
+
+function openNavigation() {
+  if (!currentLeg || !currentLeg.to_point) return;
+  const { latitude, longitude } = currentLeg.to_point;
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`, "_blank");
+}
+
+// ---------- Init ----------
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("loginBtn").addEventListener("click", handleLogin);
+  document.getElementById("phoneInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") handleLogin();
+  });
+  document.getElementById("logoutBtn").addEventListener("click", handleLogout);
+  document.getElementById("refreshBtn").addEventListener("click", () => {
+    loadTodayRoute();
+    loadCurrentLeg();
+  });
+
+  document.getElementById("navigateBtn").addEventListener("click", openNavigation);
+  document.getElementById("markBtn").addEventListener("click", openMarkModalForCurrentLeg);
+  document.getElementById("arrivedBanner").addEventListener("click", openMarkModalForCurrentLeg);
+
+  document.getElementById("markPaidBtn").addEventListener("click", () => markStop("collected"));
+  document.getElementById("markSkippedBtn").addEventListener("click", () => markStop("skipped"));
+  document.getElementById("markAbsentBtn").addEventListener("click", () => markStop("absent"));
+  document.getElementById("modalCancelBtn").addEventListener("click", closeMarkModal);
+
+  const saved = localStorage.getItem("collector");
+  if (saved) {
+    currentCollector = JSON.parse(saved);
+    startSession();
+  } else {
+    showScreen("login");
+  }
+});

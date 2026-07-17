@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Puthusu - Collector App</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen" class="screen">
+    <div class="login-card">
+      <div class="logo">📍</div>
+      <h1>Puthusu Collector Login</h1>
+      <label>Phone number</label>
+      <input id="phoneInput" type="tel" placeholder="Enter your phone number" />
+      <div id="loginError" class="error"></div>
+      <button id="loginBtn">Start My Day</button>
+    </div>
+  </div>
+
+  <!-- ROUTE SCREEN -->
+  <div id="routeScreen" class="screen" style="display:none">
+    <header class="topbar">
+      <div>
+        <h1 id="routeName">Today's Route</h1>
+        <span id="routeDate" class="muted"></span>
+      </div>
+      <div class="topbar-actions">
+        <button id="refreshBtn" class="icon-btn" title="Refresh">⟳</button>
+        <button id="logoutBtn" class="icon-btn" title="Log out">⎋</button>
+      </div>
+    </header>
+
+    <div class="progress-wrap">
+      <div class="progress-label"><span id="progressText">0 / 0 completed</span></div>
+      <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+    </div>
+
+    <div id="arrivedBanner" class="arrived-banner" style="display:none">
+      📍 You've arrived — tap to confirm this stop
+    </div>
+
+    <div id="errorBanner" class="error banner" style="display:none"></div>
+
+    <!-- Current destination only - the collector never sees the full route -->
+    <div id="currentLegSection" style="display:none">
+      <div id="navMap" class="nav-map"></div>
+
+      <div class="current-card">
+        <img id="destHouseImage" class="house-image" style="display:none" />
+        <div class="dest-header">
+          <div>
+            <div class="dest-label">Current Destination</div>
+            <div id="destName" class="dest-name">—</div>
+          </div>
+          <div class="dest-amount" id="destAmount"></div>
+        </div>
+        <div class="dest-meta">
+          <span id="destDistance"></span>
+          <span id="destEta"></span>
+        </div>
+        <div class="dest-actions">
+          <button id="navigateBtn" class="secondary">🧭 Navigate</button>
+          <button id="markBtn" class="primary">✓ Mark This Stop</button>
+        </div>
+        <div class="next-preview" id="nextPreview"></div>
+      </div>
+    </div>
+
+    <!-- Shown once every stop is done -->
+    <div id="completedSection" class="completed-card" style="display:none">
+      <h2>🎉 Route Completed</h2>
+      <div class="stats-grid">
+        <div><span class="stat-value" id="statDistance"></span><span class="stat-label">km travelled</span></div>
+        <div><span class="stat-value" id="statStops"></span><span class="stat-label">stops completed</span></div>
+        <div><span class="stat-value" id="statAmount"></span><span class="stat-label">collected</span></div>
+      </div>
+    </div>
+
+    <details class="all-stops-details">
+      <summary>View all stops for today</summary>
+      <ul id="stopsList" class="stops-list"></ul>
+    </details>
+  </div>
+
+  <!-- MARK-STOP MODAL -->
+  <div id="markModal" class="modal-overlay" style="display:none">
+    <div class="modal">
+      <h2 id="modalCustomerName"></h2>
+      <label>Amount collected</label>
+      <input id="modalAmount" type="number" placeholder="0" />
+      <button id="markPaidBtn" class="primary">✓ Mark Paid</button>
+      <button id="markSkippedBtn" class="secondary">⏭ Skip (already paid online)</button>
+      <button id="markAbsentBtn" class="secondary">🚫 Customer Absent</button>
+      <button id="modalCancelBtn" class="text-btn">Cancel</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

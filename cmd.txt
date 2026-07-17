@@ -1,0 +1,54 @@
+cd D:\AI---ML\collection\backend
+py -m venv venv
+venv\Scripts\activate
+
+pip install -r requirements.txt
+copy .env.example .env
+py -m uvicorn app.main:app --reload
+
+cd D:\AI---ML\collection\admin_dashboard
+py -m http.server 8080
+
+http://localhost:8080
+
+
+cd D:\AI---ML\collection\collector_web
+py -m http.server 8081
+
+http://localhost:8081
+
+
+
+3GcXSrv6NXG2K8K70RP9Y0pKVOm_3XGPPd1XiJK86AVPqFbpJ
+
+
+
+Connection-specific DNS Suffix  . :
+   Link-local IPv6 Address . . . . . : fe80::5d6a:5cd5:2906:c579%4
+   IPv4 Address. . . . . . . . . . . : 192.168.0.193
+   Subnet Mask . . . . . . . . . . . : 255.255.255.0
+   Default Gateway . . . . . . . . . : 192.168.0.1
+
+
+
+
+
+
+
+
+
+@echo off
+echo Starting Puthusu Collection System...
+
+start "Backend" cmd /k "cd /d D:\AI---ML\16\backend && py -m uvicorn app.main:app --reload --host 0.0.0.0"
+
+timeout /t 3 /nobreak >nul
+
+start "Admin Dashboard" cmd /k "cd /d D:\AI---ML\16\admin_dashboard && py -m http.server 8080"
+
+start "Collector App" cmd /k "cd /d D:\AI---ML\16\collector_web && py -m http.server 8081"
+
+echo All 3 servers starting in separate windows.
+echo Backend:   http://localhost:8000
+echo Admin:     http://localhost:8080
+echo Collector: http://localhost:8081

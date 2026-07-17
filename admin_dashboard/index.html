@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Puthusu – Admin Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="dashboard">
+
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="sidebar" id="sidebar">
+      <div class="logo-area">
+        <div class="logo-icon"><i class="fas fa-route"></i></div>
+        <div>
+          <span class="logo-text">Admin</span>
+          <span class="logo-sub">Collection System</span>
+        </div>
+      </div>
+
+      <div class="nav-label">MAIN</div>
+      <nav class="sidebar-nav">
+        <a href="#" class="active" data-nav="dashboard"><i class="fas fa-th-large"></i><span>Dashboard</span></a>
+        <a href="#" data-nav="route-builder"><i class="fas fa-route"></i><span>Route Builder</span></a>
+        <a href="#" data-nav="saved-routes"><i class="fas fa-map"></i><span>Saved Routes</span></a>
+        <a href="#" data-nav="customers"><i class="fas fa-user-friends"></i><span>Customers</span></a>
+        <a href="#" data-nav="collectors"><i class="fas fa-user-tie"></i><span>Collectors</span></a>
+        <a href="#" data-nav="assignments"><i class="fas fa-tasks"></i><span>Assignments</span></a>
+        <a href="#" data-nav="tracking"><i class="fas fa-satellite-dish"></i><span>Live Tracking</span></a>
+        <a href="#" data-nav="reports"><i class="fas fa-chart-bar"></i><span>Reports</span></a>
+        <a href="#" data-nav="notifications"><i class="fas fa-bell"></i><span>Notifications</span><span class="nav-badge" id="navNotifBadge">0</span></a>
+        <a href="#" data-nav="settings"><i class="fas fa-cog"></i><span>Settings</span></a>
+      </nav>
+
+      <div class="live-summary">
+        <div class="summary-title">LIVE SUMMARY</div>
+        <div class="summary-row">
+          <span><i class="fas fa-circle online"></i> Collectors Online</span>
+          <span id="onlineCount">0</span>
+        </div>
+        <div class="summary-row">
+          <span><i class="fas fa-circle offline"></i> Collectors Offline</span>
+          <span id="offlineCount">0</span>
+        </div>
+        <div class="summary-divider"></div>
+        <div class="summary-row">
+          <span>Total Collections</span>
+          <span id="totalCollectionsSum">₹0</span>
+        </div>
+        <div class="summary-row">
+          <span>Distance Travelled</span>
+          <span id="distanceTravelled">0 km</span>
+        </div>
+        <div class="summary-row">
+          <span>Average Collection</span>
+          <span id="avgCollection">₹0</span>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="profile-mini">
+          <div class="avatar-circle online-dot">RK</div>
+          <div class="profile-mini-info">
+            <div class="name">R. Karthik</div>
+            <div class="role">Super Admin</div>
+          </div>
+          <i class="fas fa-ellipsis-vertical"></i>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <main class="main-content">
+      <!-- Header -->
+      <header class="top-header">
+        <div class="header-left">
+          <button id="sidebarToggle" class="icon-btn"><i class="fas fa-bars"></i></button>
+          <h1 class="page-title">Admin Dashboard</h1>
+        </div>
+        <div class="header-right">
+          <div class="search-bar">
+            <i class="fas fa-search"></i>
+            <input type="text" placeholder="Search customers, collectors, routes..." />
+          </div>
+          <button class="icon-btn"><i class="fas fa-bell"></i><span class="badge" id="headerNotifBadge">0</span></button>
+          <button class="icon-btn" id="fullscreenBtn"><i class="fas fa-expand"></i></button>
+          <div class="profile-chip">
+            <div class="avatar-circle small">A</div>
+            <div class="profile-chip-info">
+              <span class="name">Admin</span>
+              <span class="role">Administrator</span>
+            </div>
+            <i class="fas fa-chevron-down"></i>
+          </div>
+        </div>
+      </header>
+
+      <!-- Stats Cards Row -->
+     <div class="stats-row" id="section-dashboard">
+        <div class="stat-card">
+          <div class="stat-icon icon-navy"><i class="fas fa-user-friends"></i></div>
+          <div class="stat-body">
+            <span id="statTotalCustomers">0</span>
+            <label>Total Customers</label>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-green"><i class="fas fa-user-tie"></i></div>
+          <div class="stat-body">
+            <span id="statTotalCollectors">0</span>
+            <label>Total Collectors</label>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-amber"><i class="fas fa-coins"></i></div>
+          <div class="stat-body">
+            <span id="statTodayCollection">₹0</span>
+            <label>Today's Collection</label>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-purple"><i class="fas fa-shield-heart"></i></div>
+          <div class="stat-body">
+            <span id="statCollected">₹0</span>
+            <label>Collected</label>
+            <small id="statCollectedPct">0% of total</small>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-orange"><i class="fas fa-clock"></i></div>
+          <div class="stat-body">
+            <span id="statPending">₹0</span>
+            <label>Pending</label>
+            <small id="statPendingPct">0% of total</small>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-red"><i class="fas fa-road"></i></div>
+          <div class="stat-body">
+            <span id="statTodayDistance">0 km</span>
+            <label>Today's Distance</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Body: left panel + map -->
+      <div class="body-grid">
+        <!-- LEFT PANEL -->
+        <div class="left-panel">
+          <!-- Route Builder -->
+          <div class="panel-card" id="section-route-builder">
+            <div class="panel-header">
+              <h3><i class="fas fa-route"></i> Route Builder</h3>
+              <i class="fas fa-chevron-up collapse-icon"></i>
+            </div>
+            <div class="panel-body">
+              <div class="form-group">
+                <label>Route Name</label>
+                <input id="routeName" placeholder="e.g. Anna Nagar Zone" />
+              </div>
+              <div class="form-group">
+                <label>Start Point</label>
+                <input id="startLabel" placeholder="Click map to set start" readonly />
+              </div>
+              <div class="form-group">
+                <label>End Point</label>
+                <input id="endLabel" placeholder="Click map to set end" readonly />
+              </div>
+              <div class="form-group">
+                <label>Route Type</label>
+                <div class="radio-row">
+                  <label class="radio-option">
+                    <input type="radio" name="routeType" value="today" checked /> Today Only
+                  </label>
+                  <label class="radio-option">
+                    <input type="radio" name="routeType" value="permanent" /> Permanent
+                  </label>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Assign To Collector</label>
+                <select id="assignCollectorSelect">
+                  <option value="">Select a collector…</option>
+                </select>
+                <p class="field-hint">
+                  Used both when creating a route above, and for the "Assign" /
+                  "Make Permanent" buttons on any saved route below. This is
+                  what actually links a route to a collector on the backend -
+                  the Route Type choice alone does nothing without it.
+                </p>
+              </div>
+              <div class="btn-row">
+                <button id="createRouteBtn" class="primary-btn"><i class="fas fa-diagram-project"></i> Create Route</button>
+                <button id="clearRouteBtn" class="ghost-btn"><i class="fas fa-eraser"></i> Clear</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Saved Routes -->
+          <div class="panel-card">
+            <div class="panel-header">
+              <h3><i class="fas fa-map-signs"></i> Saved Routes</h3>
+              <button id="refreshRoutesBtn" class="icon-btn small" title="Refresh"><i class="fas fa-rotate"></i></button>
+            </div>
+            <div class="panel-body no-pad">
+              <div id="savedRoutesList" class="routes-list">
+                <!-- Routes will be injected here -->
+                <div class="empty-row">No routes found. Create one above.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Customers (Today Only) -->
+          <div class="panel-card" id="section-customers">
+            <div class="panel-header">
+              <h3><i class="fas fa-user-friends"></i> Customers <span class="scope-badge today">Today Only</span></h3>
+              <div class="panel-actions">
+                <button class="chip-btn primary" id="addCustomerBtn"><i class="fas fa-plus"></i> Add</button>
+                <button class="icon-btn small"><i class="fas fa-search"></i></button>
+                <button class="icon-btn small"><i class="fas fa-filter"></i></button>
+                <button class="icon-btn small"><i class="fas fa-arrow-down-to-line"></i></button>
+              </div>
+            </div>
+            <div class="panel-body no-pad">
+              <table class="data-table">
+                <thead>
+                  <tr><th>Customer</th><th>Amount</th><th>Seq</th><th>Status</th><th>Actions</th></tr>
+                </thead>
+                <tbody id="customerList"></tbody>
+              </table>
+              <a href="#" class="view-all">View all customers <i class="fas fa-arrow-right"></i></a>
+            </div>
+          </div>
+
+          <!-- Permanent Customers -->
+          <div class="panel-card" id="section-permanent-customers">
+            <div class="panel-header">
+              <h3><i class="fas fa-user-shield"></i> Permanent Customers <span class="scope-badge permanent">Permanent</span></h3>
+            </div>
+            <div class="panel-body no-pad">
+              <table class="data-table">
+                <thead>
+                  <tr><th>Customer</th><th>Amount</th><th>Seq</th><th>Status</th><th>Actions</th></tr>
+                </thead>
+                <tbody id="permanentCustomerList"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Collectors -->
+          <div class="panel-card " id="section-collectors">
+            <div class="panel-header">
+              <h3><i class="fas fa-user-tie"></i> Collectors</h3>
+              <div class="panel-actions">
+                <button class="chip-btn primary" id="addCollectorBtn"><i class="fas fa-plus"></i> Add</button>
+                <button class="icon-btn small"><i class="fas fa-search"></i></button>
+                <button class="icon-btn small"><i class="fas fa-arrow-down-to-line"></i></button>
+              </div>
+            </div>
+            <div class="panel-body no-pad">
+              <div id="collectorList" class="collector-grid"></div>
+              <a href="#" class="view-all">View all collectors <i class="fas fa-arrow-right"></i></a>
+            </div>
+          </div>
+        </div>
+
+        <!-- MAP -->
+        <div class="map-panel" id="section-tracking" >
+          <div class="map-wrapper">
+            <div id="map" class="leaflet-map"></div>
+
+            <div class="map-legend">
+              <div class="legend-row"><span class="swatch completed"></span> Completed</div>
+              <div class="legend-row"><span class="swatch current"></span> Current Route</div>
+              <div class="legend-row"><span class="swatch remaining"></span> Remaining</div>
+              <div class="legend-row"><span class="swatch visited"></span> Visited</div>
+            </div>
+
+            <div class="floating-card next-stop" id="nextStopCard" style="display:none;">
+              <img src="https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=200&h=140&fit=crop" alt="house" />
+              <div class="next-stop-body">
+                <div class="eyebrow">Moving to next stop</div>
+                <div class="stop-name" id="nextStopName"></div>
+                <div class="stop-addr"><i class="fas fa-location-dot"></i> <span id="nextStopAddr"></span></div>
+                <div class="stop-meta">
+                  <span><i class="fas fa-clock"></i> ETA: <b id="nextStopEta">—</b></span>
+                  <span><i class="fas fa-route"></i> <b id="nextStopDist">—</b></span>
+                </div>
+                <div class="stop-amount">Amount: <b id="nextStopAmount">₹0</b></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom stats strip -->
+          <div class="map-stats-strip">
+            <div class="mini-stat"><div class="mini-icon purple"><i class="fas fa-road"></i></div><div><span id="totalDistance">0 km</span><label>Total Distance</label></div></div>
+            <div class="mini-stat"><div class="mini-icon green"><i class="fas fa-shoe-prints"></i></div><div><span id="remainingDistance">0 km</span><label>Remaining Distance</label></div></div>
+            <div class="mini-stat"><div class="mini-icon amber"><i class="fas fa-hourglass-half"></i></div><div><span id="estimatedTime">—</span><label>Estimated Time</label></div></div>
+            <div class="mini-stat"><div class="mini-icon teal"><i class="fas fa-check-double"></i></div><div><span id="stopsCompleted">0 / 0</span><label>Stops Completed</label></div></div>
+            <div class="mini-stat"><div class="mini-icon indigo"><i class="fas fa-sack-dollar"></i></div><div><span id="collectionAmount">₹0</span><label>Collection Amount</label></div></div>
+            <div class="mini-stat"><div class="mini-icon red"><i class="fas fa-triangle-exclamation"></i></div><div><span id="pendingAmount">₹0</span><label>Pending Amount</label></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom row: timeline + notifications -->
+      <div class="bottom-row">
+        <div class="panel-card">
+          <div class="panel-header">
+            <h3><i class="fas fa-list-check"></i> Route Timeline</h3>
+          </div>
+          <div class="panel-body no-pad">
+            <div id="routeTimeline" class="timeline-list"></div>
+          </div>
+        </div>
+        <div class="panel-card" id="section-notifications">
+          <div class="panel-header">
+            <h3><i class="fas fa-bell"></i> Recent Notifications</h3>
+          </div>
+          <div class="panel-body no-pad">
+            <div id="notificationList" class="notif-list"></div>
+            <a href="#" class="view-all">View all notifications <i class="fas fa-arrow-right"></i></a>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== MODALS ===== -->
+  <div id="customerModal" class="modal-overlay">
+    <div class="modal glass">
+      <h2 id="customerModalTitle">Add Customer</h2>
+      <form id="customerForm">
+        <div class="form-group"><label>Name</label><input id="custName" /></div>
+        <div class="form-group"><label>Phone</label><input id="custPhone" /></div>
+        <div class="form-group"><label>Address</label><input id="custAddress" /></div>
+        <div class="form-row">
+          <div class="form-group"><label>Latitude</label><input id="custLat" /></div>
+          <div class="form-group"><label>Longitude</label><input id="custLng" /></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Amount Due</label><input id="custAmount" type="number" /></div>
+          <div class="form-group"><label>Sequence</label><input id="custSequence" type="number" /></div>
+        </div>
+        <div class="form-group"><label>House Image</label><input id="custImage" type="file" accept="image/*" /></div>
+        <div class="form-group checkbox"><label><input id="custActive" type="checkbox" checked /> Active</label></div>
+        <div class="form-group checkbox"><label><input id="custPermanent" type="checkbox" /> Save as Permanent Customer</label></div>
+        <button type="submit" class="primary-btn full">Save</button>
+        <button type="button" class="ghost-btn full" id="closeCustomerModal">Cancel</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="collectorModal" class="modal-overlay">
+    <div class="modal glass">
+      <h2 id="collectorModalTitle">Add Collector</h2>
+      <form id="collectorForm">
+        <div class="form-group"><label>Name</label><input id="collName" /></div>
+        <div class="form-group"><label>Phone</label><input id="collPhone" /></div>
+        <div class="form-group"><label>Photo</label><input id="collPhoto" type="file" accept="image/*" /></div>
+        <div class="form-group"><label>Vehicle</label><input id="collVehicle" /></div>
+        <div class="form-group"><label>Status</label><select id="collStatus"><option value="online">Online</option><option value="offline">Offline</option></select></div>
+        <button type="submit" class="primary-btn full">Save</button>
+        <button type="button" class="ghost-btn full" id="closeCollectorModal">Cancel</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

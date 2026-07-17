@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Puthusu Collector</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ===== LOGIN ===== -->
+  <div id="loginScreen" class="screen login-screen">
+    <div class="login-card">
+      <div class="login-logo"><i class="fas fa-route"></i></div>
+      <h1>Puthusu Collector</h1>
+      <p class="login-sub">Sign in with your registered phone number to start today's route.</p>
+      <label>Phone number</label>
+      <input id="phoneInput" type="tel" placeholder="Enter your phone number" autocomplete="tel" />
+      <div id="loginError" class="error"></div>
+      <button id="loginBtn" class="primary-btn full">Start My Day</button>
+    </div>
+  </div>
+
+  <!-- ===== MAIN DASHBOARD ===== -->
+  <div id="routeScreen" class="screen dashboard" style="display:none;">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="logo-area">
+        <div class="logo-icon"><i class="fas fa-route"></i></div>
+        <div>
+          <span class="logo-text">Puthusu Collector</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#" class="active" data-nav="route"><i class="fas fa-route"></i><span>Route</span></a>
+        <a href="#" data-nav="stops"><i class="fas fa-list-check"></i><span>Stops</span></a>
+        <a href="#" data-nav="history"><i class="fas fa-clock-rotate-left"></i><span>History</span></a>
+        <a href="#" data-nav="earnings"><i class="fas fa-sack-dollar"></i><span>Earnings</span></a>
+        <a href="#" data-nav="profile"><i class="fas fa-user"></i><span>Profile</span></a>
+        <a href="#" data-nav="settings"><i class="fas fa-gear"></i><span>Settings</span></a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button id="logoutBtn" class="logout-btn"><i class="fas fa-right-from-bracket"></i> Logout</button>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main-content">
+
+      <!-- TOP HEADER -->
+      <header class="top-header">
+        <div class="header-left">
+          <button id="sidebarToggle" class="icon-btn mobile-only"><i class="fas fa-bars"></i></button>
+        </div>
+        <div class="header-right">
+          <div class="live-badge" id="liveBadge"><span class="live-dot"></span> <span id="liveBadgeText">Connecting</span></div>
+          <div class="header-chip">
+            <i class="fas fa-battery-three-quarters" id="batteryIcon"></i>
+            <span id="batteryPercent">—</span>
+          </div>
+          <div class="header-chip">
+            <i class="fas fa-clock"></i>
+            <span id="currentTime">—</span>
+          </div>
+          <button id="refreshBtn" class="icon-btn" title="Refresh"><i class="fas fa-arrows-rotate"></i></button>
+          <div class="profile-chip">
+            <div class="avatar-circle" id="collectorAvatar">—</div>
+            <div class="profile-chip-info">
+              <span class="name" id="collectorName">—</span>
+              <span class="role">Collector</span>
+            </div>
+            <i class="fas fa-chevron-down"></i>
+          </div>
+        </div>
+      </header>
+
+      <!-- STATS ROW -->
+      <div class="stats-row" id="section-route>
+        <div class="stat-card">
+          <div class="stat-icon icon-blue"><i class="fas fa-road"></i></div>
+          <div class="stat-body">
+            <span id="statTotalDistance">0 km</span>
+            <label>Total Distance</label>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-green"><i class="fas fa-route"></i></div>
+          <div class="stat-body">
+            <span id="statStopsCompleted">0 of 0</span>
+            <label>Stops Completed</label>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-amber"><i class="fas fa-coins"></i></div>
+          <div class="stat-body">
+            <span id="statAmountCollected">₹0</span>
+            <label>Amount Collected</label>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon icon-purple"><i class="fas fa-hourglass-half"></i></div>
+          <div class="stat-body">
+            <span id="statEta">—</span>
+            <label>Est. Time Remaining</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- BODY: left panel + map -->
+      <div class="body-grid">
+
+        <!-- LEFT PANEL -->
+        <div class="left-panel">
+          <div class="panel-card" id="section-stops" >
+            <div class="panel-body">
+              <div class="progress-header">
+                <h3>Route Progress</h3>
+                <span id="progressPercent">0%</span>
+              </div>
+              <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+              <div class="progress-text" id="progressText">0 of 0 stops completed</div>
+            </div>
+          </div>
+
+          <div class="panel-card stops-card">
+            <ul id="stopsList" class="stops-list">
+              <li class="empty-row">No route assigned yet</li>
+            </ul>
+          </div>
+
+          <button id="endRouteBtn" class="danger-btn full"><i class="fas fa-flag"></i> End Route</button>
+        </div>
+
+        <!-- MAP -->
+        <div class="map-panel">
+          <div class="map-wrapper">
+            <div id="navMap" class="leaflet-map"></div>
+
+            <div class="map-legend">
+              <div class="legend-row"><span class="swatch completed"></span> Completed</div>
+              <div class="legend-row"><span class="swatch moving"></span> Moving</div>
+              <div class="legend-row"><span class="swatch pending"></span> Pending</div>
+              <div class="legend-row"><span class="swatch skipped"></span> Skipped</div>
+            </div>
+
+            <div class="floating-card current-stop-card" id="currentStopCard" style="display:none;">
+              <button class="popup-close" id="closeCurrentStopCard"><i class="fas fa-xmark"></i></button>
+              <div class="cs-image" id="csImage"><i class="fas fa-house"></i></div>
+              <div class="cs-eyebrow" id="csEyebrow">Moving to next stop</div>
+              <div class="cs-name" id="csName">—</div>
+              <div class="cs-address"><i class="fas fa-location-dot"></i> <span id="csAddress">—</span></div>
+              <div class="cs-phone"><i class="fas fa-phone"></i> <span id="csPhone">—</span></div>
+
+              <div class="cs-row"><span>Amount Due</span><b id="csAmount">₹0</b></div>
+              <div class="cs-row"><span>ETA</span><b id="csEta">—</b></div>
+              <div class="cs-row"><span>Distance</span><b id="csDistance">—</b></div>
+              <div class="cs-row"><span>Sequence</span><b id="csSequence">—</b></div>
+
+              <div class="cs-btn-row">
+                <button id="csNavigateBtn" class="cs-btn navigate"><i class="fas fa-diamond-turn-right"></i> Navigate</button>
+                <button id="csCallBtn" class="cs-btn call"><i class="fas fa-phone"></i> Call</button>
+              </div>
+              <button id="csMarkBtn" class="cs-btn mark full"><i class="fas fa-check"></i> Mark This Stop</button>
+              <button id="csSkipBtn" class="cs-btn skip full"><i class="fas fa-forward"></i> Skip Stop</button>
+            </div>
+          </div>
+
+          <!-- BOTTOM STATS STRIP -->
+          <div class="map-stats-strip">
+            <div class="mini-stat"><div class="mini-icon blue"><i class="fas fa-road"></i></div><div><span id="stripTotalDistance">0 km</span><label>Total Distance</label></div></div>
+            <div class="mini-stat"><div class="mini-icon green"><i class="fas fa-shoe-prints"></i></div><div><span id="stripRemainingDistance">0 km</span><label>Remaining Distance</label></div></div>
+            <div class="mini-stat"><div class="mini-icon amber"><i class="fas fa-hourglass-half"></i></div><div><span id="stripEta">—</span><label>Est. Time Remaining</label></div></div>
+            <div class="mini-stat"><div class="mini-icon purple"><i class="fas fa-check-double"></i></div><div><span id="stripStopsCompleted">0 of 0</span><label>Stops Completed</label></div></div>
+            <div class="mini-stat"><div class="mini-icon teal"><i class="fas fa-sack-dollar"></i></div><div><span id="stripAmountCollected">₹0</span><label>Amount Collected</label></div></div>
+            <div class="mini-stat"><div class="mini-icon red"><i class="fas fa-triangle-exclamation"></i></div><div><span id="stripPendingAmount">₹0</span><label>Pending Amount</label></div></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== MARK MODAL ===== -->
+  <div id="markModal" class="modal-overlay">
+    <div class="modal">
+      <h2 id="modalCustomerName">—</h2>
+      <p class="modal-address" id="modalAddress"></p>
+      <label>Amount collected</label>
+      <input id="modalAmount" type="number" placeholder="0" />
+      <button id="markPaidBtn" class="primary-btn full">✓ Mark Paid</button>
+      <button id="markSkippedBtn" class="ghost-btn full">⏭ Skip (already paid)</button>
+      <button id="markAbsentBtn" class="ghost-btn full">🚫 Customer Absent</button>
+      <button id="modalCancelBtn" class="text-btn full">Cancel</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
