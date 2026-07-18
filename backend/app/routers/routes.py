@@ -24,7 +24,7 @@ def list_routes(db: Session = Depends(get_db)):
 
 @router.get("/{route_id}", response_model=schemas.RouteOut)
 def get_route(route_id: int, db: Session = Depends(get_db)):
-    route = db.query(models.Route).get(route_id)
+    route = db.get(models.Route, route_id)
     if not route:
         raise HTTPException(404, "Route not found")
     return route
@@ -34,7 +34,7 @@ def get_route(route_id: int, db: Session = Depends(get_db)):
 def list_route_customers(route_id: int, db: Session = Depends(get_db)):
     return (
         db.query(models.Customer)
-        .filter(models.Customer.route_id == route_id, models.Customer.active.is_(True))
+        .filter(models.Customer.route_id == route_id, models.Customer.active == True)
         .order_by(models.Customer.sequence)
         .all()
     )
@@ -44,7 +44,7 @@ def list_route_customers(route_id: int, db: Session = Depends(get_db)):
 def add_customer_to_route(
     route_id: int, customer: schemas.CustomerCreate, db: Session = Depends(get_db)
 ):
-    route = db.query(models.Route).get(route_id)
+    route = db.get(models.Route, route_id)
     if not route:
         raise HTTPException(404, "Route not found")
 
@@ -75,13 +75,13 @@ def optimize_route(route_id: int, db: Session = Depends(get_db)):
     customers on this route, then saves that order as the fixed `sequence`.
     Run this after adding/removing customers - not on every collection day.
     """
-    route = db.query(models.Route).get(route_id)
+    route = db.get(models.Route, route_id)
     if not route:
         raise HTTPException(404, "Route not found")
 
     customers = (
         db.query(models.Customer)
-        .filter(models.Customer.route_id == route_id, models.Customer.active.is_(True))
+        .filter(models.Customer.route_id == route_id, models.Customer.active == True)
         .all()
     )
     if not customers:
@@ -107,7 +107,7 @@ def optimize_route(route_id: int, db: Session = Depends(get_db)):
     db.commit()
     return (
         db.query(models.Customer)
-        .filter(models.Customer.route_id == route_id, models.Customer.active.is_(True))
+        .filter(models.Customer.route_id == route_id, models.Customer.active == True)
         .order_by(models.Customer.sequence)
         .all()
     )
@@ -124,10 +124,10 @@ def set_default_collector(
     A one-off /collectors/assignments entry for a specific date still
     overrides this (e.g. covering for an absent collector for one day).
     """
-    route = db.query(models.Route).get(route_id)
+    route = db.get(models.Route, route_id)
     if not route:
         raise HTTPException(404, "Route not found")
-    collector = db.query(models.Collector).get(body.collector_id)
+    collector = db.get(models.Collector, body.collector_id)
     if not collector:
         raise HTTPException(404, "Collector not found")
 
@@ -160,7 +160,7 @@ def delete_route(route_id: int, db: Session = Depends(get_db)):
     backend at all, only from the admin dashboard's local on-screen list,
     so deleted-looking routes kept coming back after a page refresh.
     """
-    route = db.query(models.Route).get(route_id)
+    route = db.get(models.Route, route_id)
     if not route:
         raise HTTPException(404, "Route not found")
 
@@ -182,7 +182,7 @@ def delete_route(route_id: int, db: Session = Depends(get_db)):
 def clear_default_collector(route_id: int, db: Session = Depends(get_db)):
     """Removes the permanent owner - the route will need a manual daily
     assignment again until a new default is set."""
-    route = db.query(models.Route).get(route_id)
+    route = db.get(models.Route, route_id)
     if not route:
         raise HTTPException(404, "Route not found")
     route.default_collector_id = None
@@ -198,13 +198,13 @@ def get_route_geometry(route_id: int, db: Session = Depends(get_db)):
     sequence order - what the admin dashboard draws as the black route line.
     Run /optimize first so the sequence reflects the shortest visiting order.
     """
-    route = db.query(models.Route).get(route_id)
+    route = db.get(models.Route, route_id)
     if not route:
         raise HTTPException(404, "Route not found")
 
     customers = (
         db.query(models.Customer)
-        .filter(models.Customer.route_id == route_id, models.Customer.active.is_(True))
+        .filter(models.Customer.route_id == route_id, models.Customer.active == True)
         .order_by(models.Customer.sequence)
         .all()
     )
@@ -229,14 +229,14 @@ def reorder_customers(
 ):
     """Manual override for sequence numbers, e.g. after admin drag-and-drop."""
     for move in moves:
-        customer = db.query(models.Customer).get(move.customer_id)
+        customer = db.get(models.Customer, move.customer_id)
         if not customer or customer.route_id != route_id:
             raise HTTPException(400, f"Customer {move.customer_id} not on this route")
         customer.sequence = move.sequence
     db.commit()
     return (
         db.query(models.Customer)
-        .filter(models.Customer.route_id == route_id, models.Customer.active.is_(True))
+        .filter(models.Customer.route_id == route_id, models.Customer.active == True)
         .order_by(models.Customer.sequence)
         .all()
     )

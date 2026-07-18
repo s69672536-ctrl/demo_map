@@ -14,7 +14,8 @@ ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic"}
 
 @router.get("/{customer_id}", response_model=schemas.CustomerOut)
 def get_customer(customer_id: int, db: Session = Depends(get_db)):
-    customer = db.query(models.Customer).get(customer_id)
+    # FIX: db.query(...).get() is removed in SQLAlchemy 2.x style usage
+    customer = db.get(models.Customer, customer_id)
     if not customer:
         raise HTTPException(404, "Customer not found")
     return customer
@@ -24,7 +25,7 @@ def get_customer(customer_id: int, db: Session = Depends(get_db)):
 def update_customer(
     customer_id: int, customer_update: schemas.CustomerCreate, db: Session = Depends(get_db)
 ):
-    customer = db.query(models.Customer).get(customer_id)
+    customer = db.get(models.Customer, customer_id)
     if not customer:
         raise HTTPException(404, "Customer not found")
     for field, value in customer_update.model_dump().items():
@@ -37,7 +38,7 @@ def update_customer(
 @router.delete("/{customer_id}")
 def deactivate_customer(customer_id: int, db: Session = Depends(get_db)):
     """Soft-delete: keeps history intact, just drops them off future routes."""
-    customer = db.query(models.Customer).get(customer_id)
+    customer = db.get(models.Customer, customer_id)
     if not customer:
         raise HTTPException(404, "Customer not found")
     customer.active = False
@@ -54,7 +55,7 @@ async def upload_house_image(
     it before arriving. Shown in the customer detail view and (once wired
     into the collector app) before navigation starts.
     """
-    customer = db.query(models.Customer).get(customer_id)
+    customer = db.get(models.Customer, customer_id)
     if not customer:
         raise HTTPException(404, "Customer not found")
 

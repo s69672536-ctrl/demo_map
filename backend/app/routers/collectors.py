@@ -33,7 +33,11 @@ def create_collector(collector: schemas.CollectorCreate, db: Session = Depends(g
     data = collector.model_dump()
     normalized = normalize_phone(data["phone"])
     if normalized:
-        existing = db.query(models.Collector).filter(models.Collector.active.is_(True)).all()
+        existing = (
+    db.query(models.Collector)
+    .filter(models.Collector.active == True)
+    .all()
+)
         if any(normalize_phone(c.phone) == normalized for c in existing):
             raise HTTPException(400, "Another collector already uses that phone number")
         data["phone"] = normalized
@@ -46,8 +50,11 @@ def create_collector(collector: schemas.CollectorCreate, db: Session = Depends(g
 
 @router.get("", response_model=list[schemas.CollectorOut])
 def list_collectors(db: Session = Depends(get_db)):
-    return db.query(models.Collector).filter(models.Collector.active.is_(True)).all()
-
+    return (
+    db.query(models.Collector)
+    .filter(models.Collector.active == True)
+    .all()
+)
 
 @router.post("/login", response_model=schemas.CollectorOut)
 def login(phone: str, db: Session = Depends(get_db)):
@@ -66,7 +73,11 @@ def login(phone: str, db: Session = Depends(get_db)):
     if not target:
         raise HTTPException(400, "Enter a phone number")
 
-    collectors = db.query(models.Collector).filter(models.Collector.active.is_(True)).all()
+    collectors = (
+    db.query(models.Collector)
+    .filter(models.Collector.active == True)
+    .all()
+)
     for c in collectors:
         if normalize_phone(c.phone) == target:
             return c
@@ -82,8 +93,8 @@ def assign_route(assignment: schemas.RouteAssignmentCreate, db: Session = Depend
     absent agent's exact route with zero reconfiguration - just create a
     new assignment for the same route/date pointing at a different collector.
     """
-    route = db.query(models.Route).get(assignment.route_id)
-    collector = db.query(models.Collector).get(assignment.collector_id)
+    route = db.get(models.Route, assignment.route_id)
+    collector = db.get(models.Collector, assignment.collector_id)
     if not route or not collector:
         raise HTTPException(404, "Route or collector not found")
 
@@ -99,7 +110,7 @@ def assign_route(assignment: schemas.RouteAssignmentCreate, db: Session = Depend
     return {"ok": True, "route_id": route.id, "collector_id": collector.id, "date": str(assign_date)}
 @router.put("/{collector_id}", response_model=schemas.CollectorOut)
 def update_collector(collector_id: int, update: schemas.CollectorUpdate, db: Session = Depends(get_db)):
-    collector = db.query(models.Collector).get(collector_id)
+    collector = db.get(models.Collector, collector_id)
     if not collector:
         raise HTTPException(404, "Collector not found")
 

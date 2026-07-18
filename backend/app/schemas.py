@@ -41,6 +41,18 @@ class CustomerCreate(BaseModel):
     default_amount: Optional[float] = None
 
 
+class CustomerUpdate(BaseModel):
+    """Used for PATCH /customers/{id}. All fields optional so a client only
+    needs to send what's actually changing - combine with
+    model_dump(exclude_unset=True) in the router so omitted fields are left
+    untouched instead of being overwritten with None."""
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    default_amount: Optional[float] = None
+
+
 class CustomerOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

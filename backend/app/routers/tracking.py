@@ -14,7 +14,7 @@ router = APIRouter(prefix="/tracking", tags=["tracking"])
 @router.post("/{collector_id}/ping")
 def ping_location(collector_id: int, location: schemas.LocationPing, db: Session = Depends(get_db)):
     """Collector app calls this every ~10-15 seconds while a route is active."""
-    collector = db.query(models.Collector).get(collector_id)
+    collector = db.get(models.Collector, collector_id)
     if not collector:
         raise HTTPException(404, "Collector not found")
 
@@ -31,7 +31,7 @@ def ping_location(collector_id: int, location: schemas.LocationPing, db: Session
 def live_locations(db: Session = Depends(get_db)):
     """Latest known position for every collector. Prefer /tracking/summary
     for the admin dashboard - this is kept for simple map-only use cases."""
-    collectors = db.query(models.Collector).filter(models.Collector.active.is_(True)).all()
+    collectors = db.query(models.Collector).filter(models.Collector.active == True).all()
     latest = []
     for c in collectors:
         loc = (
@@ -76,7 +76,7 @@ def get_distance_travelled(
 ):
     """Total km travelled by this collector on the given day (default: today),
     computed from their GPS ping history."""
-    collector = db.query(models.Collector).get(collector_id)
+    collector = db.get(models.Collector, collector_id)
     if not collector:
         raise HTTPException(404, "Collector not found")
 
@@ -96,7 +96,7 @@ def tracking_summary(
     polls every few seconds.
     """
     target_date = for_date or date_type.today()
-    collectors = db.query(models.Collector).filter(models.Collector.active.is_(True)).all()
+    collectors = db.query(models.Collector).filter(models.Collector.active == True).all()
 
     summary = []
     for c in collectors:
@@ -118,7 +118,7 @@ def tracking_summary(
             .first()
         )
         if assignment:
-            route = db.query(models.Route).get(assignment.route_id)
+            route = db.get(models.Route, assignment.route_id)
         else:
             route = (
                 db.query(models.Route)

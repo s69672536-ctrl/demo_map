@@ -2,6 +2,7 @@ from datetime import date as date_type, datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -36,28 +37,36 @@ def get_today_route(
     )
 
     if assignment:
-        route = db.query(models.Route).get(assignment.route_id)
+        # SQLAlchemy 2.x compatible
+        route = db.get(models.Route, assignment.route_id)
     else:
         # No one-off assignment for today - fall back to whichever route
-        # permanently belongs to this collector (see /routes/{id}/default-collector).
+        # permanently belongs to this collector.
         route = (
             db.query(models.Route)
             .filter(models.Route.default_collector_id == collector_id)
             .first()
         )
+
         if not route:
             raise HTTPException(
-                404,
-                "No route assigned to this collector for that date, and no default route set for them.",
+                status_code=404,
+                detail="No route assigned to this collector for that date, and no default route set for them.",
             )
+
+    # SQL Server compatible boolean filter
     customers = (
         db.query(models.Customer)
-        .filter(models.Customer.route_id == route.id, models.Customer.active.is_(True))
+        .filter(
+            models.Customer.route_id == route.id,
+            models.Customer.active == True
+        )
         .order_by(models.Customer.sequence)
         .all()
     )
 
     stops = []
+
     for customer in customers:
         collection = (
             db.query(models.DailyCollection)
@@ -67,6 +76,7 @@ def get_today_route(
             )
             .first()
         )
+
         if not collection:
             collection = models.DailyCollection(
                 customer_id=customer.id,
@@ -124,16 +134,28 @@ def get_current_leg(
 
     next_index = next((i for i, s in enumerate(stops) if s.status == models.CollectionStatus.pending), None)
 
+    target_date = for_date or date_type.today()
+
     if next_index is None:
         # Every stop is done - route complete. Summarize instead of navigating.
-        target_date = for_date or date_type.today()
         completed = [s for s in stops if s.status != models.CollectionStatus.pending]
         amount_collected = sum(s.amount_collected or 0 for s in completed)
 
         km = 0.0
+        # FIX: only include today's pings, not the collector's entire
+        # location history (previously summed distance across all days).
+        # func.cast(..., Date) works portably across SQLite/Postgres/SQL Server.
+        from sqlalchemy import Date, cast
+
+        day_start = datetime.combine(target_date, datetime.min.time())
+        day_end = datetime.combine(target_date, datetime.max.time())
         pings = (
             db.query(models.CollectorLocation)
-            .filter(models.CollectorLocation.collector_id == collector_id)
+            .filter(
+                models.CollectorLocation.collector_id == collector_id,
+                models.CollectorLocation.recorded_at >= day_start,
+                models.CollectorLocation.recorded_at <= day_end,
+            )
             .order_by(models.CollectorLocation.recorded_at.asc())
             .all()
         )
@@ -212,14 +234,16 @@ def get_today_route_geometry(
 
     points = [{"lat": today_route.start_lat, "lng": today_route.start_lng, "status": "start"}]
     for stop in today_route.stops:
-        points.append({"lat": stop.latitude, "lng": stop.longitude, "status": stop.status})
+        # FIX: serialize the enum's value explicitly so it's always a plain
+        # JSON string, regardless of whether CollectionStatus subclasses str.
+        status_value = stop.status.value if hasattr(stop.status, "value") else stop.status
+        points.append({"lat": stop.latitude, "lng": stop.longitude, "status": status_value})
     points.append({"lat": today_route.end_lat, "lng": today_route.end_lng, "status": "end"})
 
     return {"route_id": today_route.route_id, "route_name": today_route.route_name, "points": points}
 
 
 @router.post("/{customer_id}/mark")
-
 def mark_collection(
     customer_id: int,
     body: schemas.MarkCollectedRequest,
@@ -269,9 +293,19 @@ def daily_report(
         query = query.filter(models.Customer.route_id == route_id)
 
     records = query.all()
-    summary = {"date": str(target_date), "total_stops": len(records), "collected": 0,
-               "skipped": 0, "pending": 0, "absent": 0, "total_amount_collected": 0.0}
+    summary = {
+        "date": str(target_date),
+        "total_stops": len(records),
+        "collected": 0,
+        "skipped": 0,
+        "pending": 0,
+        "absent": 0,
+        "total_amount_collected": 0.0,
+    }
     for r in records:
+        # FIX: use setdefault so an unexpected status value doesn't raise
+        # a KeyError and take down the whole report endpoint.
+        summary.setdefault(r.status.value, 0)
         summary[r.status.value] += 1
         if r.amount_collected:
             summary["total_amount_collected"] += r.amount_collected
