@@ -27,6 +27,7 @@ app.add_middleware(
         "https://collection-admin.onrender.com",
         "https://collection-web.onrender.com",
         
+        
     ],
     allow_credentials=True,
     allow_methods=["*"],
