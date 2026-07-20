@@ -6,4 +6,8 @@
 // Until then, every call in app.js will fail to reach this address and the
 // dashboard automatically falls back to keeping data in local memory —
 // nothing is pre-filled, it only fills up as you add customers/collectors.
-const API_BASE_URL = "https://collection-wdqa.onrender.com";
+
+// const API_BASE_URL = "https://collection-wdqa.onrender.com";
+
+const API_BASE_URL = "http://localhost:8000";
+const CONFIG = { API_BASE_URL };

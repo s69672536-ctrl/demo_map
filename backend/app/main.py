@@ -26,6 +26,10 @@ app.add_middleware(
     allow_origins=[
         "https://collection-2-xg1m.onrender.com",
         "https://your-collector-site.onrender.com",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
     ],
     allow_credentials=True,
     allow_methods=["*"],
