@@ -21,16 +21,35 @@ app = FastAPI(
 
 # Wide open for local dev / the bundled admin dashboard. Lock this down
 # (specific origins) before deploying.
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=[
+#         "https://collection-admin.onrender.com",
+#         "https://collection-web.onrender.com",
+#     ],
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
+# In main.py - replace the CORS middleware section
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://collection-admin.onrender.com",
-        "https://collection-web.onrender.com",
+        "https://collection-web.onrender.com",      # Collector app
+        "https://collection-admin.onrender.com",    # Admin dashboard
+        "https://collection-backend-akng.onrender.com",  # Backend itself
+        "http://localhost:8000",                    # Local backend
+        "http://localhost:3000",                    # Local frontend
+        "http://127.0.0.1:8000",
+        "http://127.0.0.1:3000",
     ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
+    expose_headers=["*"],
 )
+
 app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "..", "static")), name="static")
 
 app.include_router(routes.router)
