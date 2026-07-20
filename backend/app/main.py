@@ -25,6 +25,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://collection-admin.onrender.com",
+        "https://collection-web.onrender.com",
+        
     ],
     allow_credentials=True,
     allow_methods=["*"],

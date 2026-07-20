@@ -108,6 +108,8 @@ def assign_route(assignment: schemas.RouteAssignmentCreate, db: Session = Depend
     db.add(db_assignment)
     db.commit()
     return {"ok": True, "route_id": route.id, "collector_id": collector.id, "date": str(assign_date)}
+
+
 @router.put("/{collector_id}", response_model=schemas.CollectorOut)
 def update_collector(collector_id: int, update: schemas.CollectorUpdate, db: Session = Depends(get_db)):
     collector = db.get(models.Collector, collector_id)
@@ -131,14 +133,29 @@ def update_collector(collector_id: int, update: schemas.CollectorUpdate, db: Ses
     return collector
 
 
+# @router.delete("/{collector_id}")
+# def deactivate_collector(collector_id: int, db: Session = Depends(get_db)):
+#     """Soft-delete: keeps their collection history intact, just stops them
+#     from showing up in the admin's collector list or being able to log in.
+#     Mirrors deactivate_customer() in routers/customers.py."""
+#     collector = db.query(models.Collector).get(collector_id)
+#     if not collector:
+#         raise HTTPException(404, "Collector not found")
+#     collector.active = False
+#     db.commit()
+#     return {"ok": True}
+
 @router.delete("/{collector_id}")
 def deactivate_collector(collector_id: int, db: Session = Depends(get_db)):
     """Soft-delete: keeps their collection history intact, just stops them
-    from showing up in the admin's collector list or being able to log in.
-    Mirrors deactivate_customer() in routers/customers.py."""
-    collector = db.query(models.Collector).get(collector_id)
+    from showing up in the admin's collector list or being able to log in."""
+    
+    # FIX: Use db.get(Model, id) instead of db.query(Model).get(id)
+    collector = db.get(models.Collector, collector_id)
+    
     if not collector:
         raise HTTPException(404, "Collector not found")
+        
     collector.active = False
     db.commit()
     return {"ok": True}
