@@ -88,9 +88,8 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://collection-web.onrender.com",
-        "https://collection-admin.onrender.com",
-        "https://collection-backend-akng.onrender.com",
+  "https://demo-map-c8xp.onrender.com",
+  "https://demo-admin-6x13.onrender.com",
         "http://localhost:8000",
         "http://localhost:3000",
         "http://127.0.0.1:8000",
