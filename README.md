@@ -209,3 +209,4 @@ full remaining route:
 5. Reporting (`/collections/report` is a starting point — extend per your needs).
 6. Swap the phone-only login for real auth before handling real collections.
 "# collection" 
+"# demo" 
