@@ -848,6 +848,15 @@ body {
 /* ===== SCROLLBAR AREAS ===== */
 .collector-grid, .data-table, .timeline-list, .notif-list { overflow: visible; }
 
+/* ===== SIDEBAR OVERLAY (mobile drawer backdrop) ===== */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 999;
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 1400px) {
   .stats-row { grid-template-columns: repeat(3, 1fr); }
@@ -856,6 +865,77 @@ body {
 @media (max-width: 1100px) {
   .body-grid { grid-template-columns: 1fr; }
   .bottom-row { grid-template-columns: 1fr; }
+}
+
+/* ===== MOBILE (phones / narrow tablets, ≤768px) ===== */
+@media (max-width: 768px) {
+  html, body { height: auto; overflow-y: auto; }
+  .dashboard { height: auto; min-height: 100vh; }
+
+  /* Sidebar becomes an off-canvas drawer instead of a narrow icon rail.
+     Note: on mobile ".collapsed" means "drawer open" — the opposite of
+     its desktop meaning (icon-only rail) — since the toggle button and
+     class are shared across both layouts. */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 260px;
+    max-width: 82vw;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+  }
+  .sidebar.collapsed {
+    width: 260px;
+    transform: translateX(0);
+    box-shadow: 8px 0 30px rgba(16, 24, 40, 0.2);
+  }
+  /* Undo the desktop icon-rail hiding rules while the drawer is open */
+  .sidebar.collapsed .logo-text,
+  .sidebar.collapsed .logo-sub { display: block; }
+  .sidebar.collapsed .nav-label { display: block; }
+  .sidebar.collapsed .sidebar-nav a span { display: inline; }
+  .sidebar.collapsed .nav-badge { display: inline-block; }
+  .sidebar.collapsed .live-summary { display: block; }
+  .sidebar.collapsed .profile-mini-info { display: block; }
+  .sidebar.collapsed .profile-mini i { display: inline-block; }
+
+  .sidebar.collapsed ~ .sidebar-overlay { display: block; }
+
+  .main-content { width: 100%; }
+
+  .top-header { flex-wrap: wrap; gap: 10px; padding: 12px 16px; }
+  .page-title { font-size: 16px; }
+  .search-bar { display: none; }
+  .header-right { gap: 6px; margin-left: auto; }
+  .profile-chip-info { display: none; }
+
+  .stats-row { grid-template-columns: repeat(2, 1fr); padding: 0 16px 12px; gap: 10px; }
+  .stat-card { padding: 12px; }
+  .stat-body span { font-size: 16px; }
+
+  .body-grid { padding: 0 16px 12px; }
+  .bottom-row { grid-template-columns: 1fr; padding: 0 16px 16px; }
+
+  .map-wrapper { height: 320px; }
+  .map-stats-strip { grid-template-columns: repeat(2, 1fr); padding: 12px; }
+  .collector-grid { grid-template-columns: repeat(2, 1fr); }
+
+  .next-stop { width: calc(100vw - 64px); left: 12px; bottom: 12px; }
+
+  /* Wide data tables scroll horizontally instead of squeezing columns */
+  .data-table { display: block; overflow-x: auto; white-space: nowrap; }
+
+  .modal { padding: 20px; max-width: 92vw; }
+  .form-row { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 420px) {
+  .stats-row { grid-template-columns: 1fr; }
+  .map-stats-strip { grid-template-columns: repeat(2, 1fr); }
+  .collector-grid { grid-template-columns: 1fr; }
 }
 /* ---------------- Live collector marker (pulsing dot) ---------------- */
 .live-marker-wrap {

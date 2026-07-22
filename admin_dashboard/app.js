@@ -1217,6 +1217,24 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => map.invalidateSize(), 220);
   });
 
+  // On mobile the sidebar is an off-canvas drawer: tapping the backdrop
+  // or picking a nav link closes it again. Harmless no-op on desktop.
+  const sidebarOverlay = $id("sidebarOverlay");
+  if (sidebarOverlay) {
+    sidebarOverlay.addEventListener("click", () => {
+      $id("sidebar").classList.remove("collapsed");
+      setTimeout(() => map.invalidateSize(), 220);
+    });
+  }
+  document.querySelectorAll(".sidebar-nav a").forEach((link) => {
+    link.addEventListener("click", () => {
+      if (window.innerWidth <= 768) {
+        $id("sidebar").classList.remove("collapsed");
+        setTimeout(() => map.invalidateSize(), 220);
+      }
+    });
+  });
+
   $id("fullscreenBtn").addEventListener("click", () => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
     else document.exitFullscreen();

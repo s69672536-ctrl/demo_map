@@ -101,6 +101,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+
+
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*"],  # Allows all frontend origins (fine for local dev)
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
 # Explicit OPTIONS handler for preflight requests
 @app.options("/{full_path:path}")
 async def options_handler(full_path: str):
